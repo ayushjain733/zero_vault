@@ -522,6 +522,13 @@ class _VaultGateScreenState extends State<VaultGateScreen> {
                                     ),
                                   ),
                                   IconButton(
+                                    // <--- NEW EDIT BUTTON
+                                    tooltip: 'Edit Item',
+                                    icon: const Icon(Icons.edit_outlined),
+                                    onPressed: () =>
+                                        _showEditItemDialog(folder, item),
+                                  ),
+                                  IconButton(
                                     tooltip: 'View Details',
                                     icon: const Icon(Icons.visibility_outlined),
                                     onPressed: () =>
@@ -783,5 +790,74 @@ class _VaultGateScreenState extends State<VaultGateScreen> {
             .showSnackBar(SnackBar(content: Text('Import failed: $e')));
       }
     }
+  }
+
+  Future<void> _showEditItemDialog(VaultFolder folder, VaultItem item) async {
+    // Pre-fill the controllers with the existing data
+    final titleCtrl = TextEditingController(text: item.title);
+    final userCtrl = TextEditingController(text: item.username);
+    final secretCtrl = TextEditingController(text: item.secret);
+    final notesCtrl = TextEditingController(text: item.notes);
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Edit ${item.title}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleCtrl,
+                decoration: const InputDecoration(labelText: 'Title'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: userCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Account / Username',
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: secretCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Password / PIN'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: notesCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Notes (Optional)',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (titleCtrl.text.trim().isNotEmpty &&
+                  secretCtrl.text.isNotEmpty) {
+                setState(() {
+                  // Update the existing item directly
+                  item.title = titleCtrl.text.trim();
+                  item.username = userCtrl.text.trim();
+                  item.secret = secretCtrl.text;
+                  item.notes = notesCtrl.text.trim();
+                });
+                await _saveCurrentVault(); // Encrypt and save to disk
+                if (ctx.mounted) Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Save Changes'),
+          ),
+        ],
+      ),
+    );
   }
 }
