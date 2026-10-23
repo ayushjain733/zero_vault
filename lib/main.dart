@@ -1,17 +1,6 @@
-// import 'dart:io'; // Ensure this is also imported at the top
-// import 'dart:async';
-
-// import 'package:file_picker/file_picker.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter/services.dart';
-// import 'package:local_auth/local_auth.dart';
-// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-// import 'vault_models.dart';
-// import 'crypto_service.dart';
-
 import 'dart:async';
 import 'dart:io'; // Required for File handling
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -54,7 +43,8 @@ class VaultGateScreen extends StatefulWidget {
   State<VaultGateScreen> createState() => _VaultGateScreenState();
 }
 
-class _VaultGateScreenState extends State<VaultGateScreen> {
+class _VaultGateScreenState extends State<VaultGateScreen>
+    with WidgetsBindingObserver {
   final CryptoService _crypto = CryptoService();
   final LocalAuthentication _localAuth = LocalAuthentication();
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
@@ -65,7 +55,6 @@ class _VaultGateScreenState extends State<VaultGateScreen> {
   bool _biometricsEnabled = false;
   String? _errorMessage;
 
-  // Unlocked state
   VaultDatabase? _UnlockedDb;
   String? _activeMasterPassword;
   String _searchQuery = '';
@@ -74,7 +63,43 @@ class _VaultGateScreenState extends State<VaultGateScreen> {
   @override
   void initState() {
     super.initState();
+    // Register the lifecycle observer
+    WidgetsBinding.instance.addObserver(this);
     _checkInitialState();
+  }
+
+  @override
+  void dispose() {
+    // Clean up observer and timers to prevent memory leaks
+    WidgetsBinding.instance.removeObserver(this);
+    _clipboardTimer?.cancel();
+    super.dispose();
+  }
+
+  // --- NEW: AUTO-LOCK LIFECYCLE METHOD ---
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // If the app is minimized, hidden, or the screen turns off, lock it instantly.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.inactive) {
+      if (_UnlockedDb != null) {
+        _lockVault();
+      }
+    }
+  }
+
+  // --- NEW: SECURE PASSWORD GENERATOR ---
+  String _generateSecurePassword({int length = 16}) {
+    const chars =
+        'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890!@#\$%^&*()-_=+';
+    final rnd = Random.secure();
+    return String.fromCharCodes(
+      Iterable.generate(
+        length,
+        (_) => chars.codeUnitAt(rnd.nextInt(chars.length)),
+      ),
+    );
   }
 
   Future<void> _checkInitialState() async {
@@ -620,8 +645,20 @@ class _VaultGateScreenState extends State<VaultGateScreen> {
               TextField(
                 controller: secretCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Password / PIN / MPIN',
+                  // NEW: Generator Button
+                  suffixIcon: IconButton(
+                    icon: const Icon(
+                      Icons.casino_outlined,
+                      color: Colors.tealAccent,
+                    ),
+                    tooltip: 'Generate Strong Password',
+                    onPressed: () {
+                      // Generate and fill the text field
+                      secretCtrl.text = _generateSecurePassword();
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -822,7 +859,21 @@ class _VaultGateScreenState extends State<VaultGateScreen> {
               TextField(
                 controller: secretCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password / PIN'),
+                decoration: InputDecoration(
+                  labelText: 'Password / PIN / MPIN',
+                  // NEW: Generator Button
+                  suffixIcon: IconButton(
+                    icon: const Icon(
+                      Icons.casino_outlined,
+                      color: Colors.tealAccent,
+                    ),
+                    tooltip: 'Generate Strong Password',
+                    onPressed: () {
+                      // Generate and fill the text field
+                      secretCtrl.text = _generateSecurePassword();
+                    },
+                  ),
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
